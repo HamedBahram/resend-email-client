@@ -127,3 +127,14 @@
     @apply font-sans;
     }
 }
+
+/* Editor popovers (slash command, node selector, link form) render via
+ * createPortal into document.body with a floating-ui wrapper that has no
+ * z-index. The compose overlay is z-50, so without this the popovers sit
+ * behind the backdrop and look invisible. Target the portal wrapper via
+ * :has() and lift it above the compose overlay. */
+body > div:has(> [data-re-slash-command]),
+body > div:has(> [data-re-node-selector-content]),
+body > div:has(> [data-re-link-selector-form]) {
+  z-index: 80;
+}

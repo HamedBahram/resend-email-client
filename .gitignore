@@ -29,8 +29,15 @@ yarn-error.log*
 pnpm-debug.log*
 
 # env files
+.env
 .env*.local
+!.env.example
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+# next-agents-md
+.next-docs/
+
+# prisma generated client (prisma-client provider output)
+/generated/

@@ -1,0 +1,65 @@
+// Email client schema.
+// A single `Email` row represents one outbound message; `EmailEvent` rows
+// are a pure append-only log of everything Resend tells us about it
+// via webhooks (sent, delivered, opened, clicked, bounced, complained, ...).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum EmailStatus {
+  queued
+  sent
+  delivered
+  opened
+  clicked
+  bounced
+  complained
+  delivery_delayed
+  failed
+}
+
+model Email {
+  id         String      @id @default(cuid())
+  resendId   String?     @unique
+  from       String
+  to         String[]
+  cc         String[]    @default([])
+  bcc        String[]    @default([])
+  replyTo    String[]    @default([])
+  subject    String
+  html       String
+  text       String
+  // Raw TipTap/ProseMirror JSON from the editor so we can re-open drafts later.
+  contentJson Json?
+  status     EmailStatus @default(queued)
+  error      String?
+  sentAt     DateTime    @default(now())
+  lastEventAt DateTime?
+  openCount  Int         @default(0)
+  clickCount Int         @default(0)
+
+  events     EmailEvent[]
+
+  @@index([sentAt(sort: Desc)])
+}
+
+model EmailEvent {
+  id        String   @id @default(cuid())
+  emailId   String
+  email     Email    @relation(fields: [emailId], references: [id], onDelete: Cascade)
+  // Resend event types, e.g. "email.delivered", "email.opened", "email.clicked".
+  type      String
+  // Svix message id for idempotency.
+  svixId    String?  @unique
+  createdAt DateTime @default(now())
+  // Full event payload for display/debug.
+  data      Json
+
+  @@index([emailId, createdAt])
+}
