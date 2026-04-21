@@ -2,7 +2,7 @@ import { headers } from "next/headers"
 import { NextResponse } from "next/server"
 import { Webhook } from "svix"
 
-import type { EmailStatus } from "@/generated/prisma/client"
+import { Prisma, type EmailStatus } from "@/generated/prisma/client"
 import { db } from "@/lib/db"
 
 export const runtime = "nodejs"
@@ -93,19 +93,6 @@ export async function POST(req: Request) {
 
   const createdAt = event.created_at ? new Date(event.created_at) : new Date()
 
-  // Idempotency: unique on svixId. If a duplicate arrives, upsert no-ops.
-  await db.emailEvent.upsert({
-    where: { svixId },
-    create: {
-      svixId,
-      emailId: email.id,
-      type,
-      createdAt,
-      data: event as never,
-    },
-    update: {},
-  })
-
   const next = STATUS_FOR[type]
   const bumpOpen = type === "email.opened" ? 1 : 0
   const bumpClick = type === "email.clicked" ? 1 : 0
@@ -113,15 +100,41 @@ export async function POST(req: Request) {
   const advance =
     next !== null && next !== undefined && STATUS_RANK[next] > STATUS_RANK[email.status]
 
-  await db.email.update({
-    where: { id: email.id },
-    data: {
-      lastEventAt: createdAt,
-      openCount: { increment: bumpOpen },
-      clickCount: { increment: bumpClick },
-      ...(advance ? { status: next } : {}),
-    },
-  })
+  // Insert the event and apply its side effects atomically. The unique
+  // constraint on svixId is the source of truth for "have we seen this
+  // delivery?" — if the create throws P2002, Resend is retrying a webhook we
+  // already processed, so we roll back and ack without re-bumping counters.
+  try {
+    await db.$transaction(async (tx) => {
+      await tx.emailEvent.create({
+        data: {
+          svixId,
+          emailId: email.id,
+          type,
+          createdAt,
+          data: event as never,
+        },
+      })
+
+      await tx.email.update({
+        where: { id: email.id },
+        data: {
+          lastEventAt: createdAt,
+          openCount: { increment: bumpOpen },
+          clickCount: { increment: bumpClick },
+          ...(advance ? { status: next } : {}),
+        },
+      })
+    })
+  } catch (err) {
+    if (
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === "P2002"
+    ) {
+      return NextResponse.json({ ok: true, duplicate: true })
+    }
+    throw err
+  }
 
   return NextResponse.json({ ok: true })
 }
