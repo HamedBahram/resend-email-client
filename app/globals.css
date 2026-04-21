@@ -138,3 +138,28 @@ body > div:has(> [data-re-node-selector-content]),
 body > div:has(> [data-re-link-selector-form]) {
   z-index: 80;
 }
+
+/* Slash-command popover theming. The editor's default stylesheet hard-codes
+ * light-mode colors; map them onto our shadcn tokens so the menu follows the
+ * app theme in both light and dark mode. Lives here (not with the component)
+ * because the popover is portaled outside the Compose subtree.
+ *
+ * Scoped under `body` to outrank the editor's default.css — both files target
+ * `[data-re-slash-command*]` with identical specificity, and that stylesheet
+ * is imported from compose.tsx so it lands after globals.css in source order. */
+body [data-re-slash-command] {
+  background: var(--popover);
+  border-color: var(--border);
+}
+
+body [data-re-slash-command-item],
+body [data-re-slash-command-item] svg,
+body [data-re-slash-command-category],
+body [data-re-slash-command-empty] {
+  color: var(--popover-foreground);
+}
+
+body [data-re-slash-command-item]:hover,
+body [data-re-slash-command-item][data-selected] {
+  background: var(--muted);
+}

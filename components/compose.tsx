@@ -247,24 +247,6 @@ export function Compose({
           </Button>
         </footer>
       </div>
-      <style jsx global>{`
-        [data-re-slash-command] {
-          background: var(--popover);
-          border-color: var(--border);
-        }
-
-        [data-re-slash-command-item],
-        [data-re-slash-command-item] svg,
-        [data-re-slash-command-category],
-        [data-re-slash-command-empty] {
-          color: var(--popover-foreground);
-        }
-
-        [data-re-slash-command-item]:hover,
-        [data-re-slash-command-item][data-selected] {
-          background: var(--muted);
-        }
-      `}</style>
     </div>
   )
 }
